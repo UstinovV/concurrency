@@ -19,24 +19,45 @@ func (p *Philosopher) Eat() {
 	time.Sleep(1 * time.Second)
 }
 
-func (p *Philosopher) WantsToEat(wg *sync.WaitGroup, rf *Fork, lf *Fork) {
-	fmt.Printf("Philosopher %d wants to eat \n", p.Id)
-	select {
-	case <-rf.Pick():
-		fmt.Println("right first")
-		<-lf.Pick()
-		fmt.Println("left second")
-	case <-lf.Pick():
-		fmt.Println("left first")
-		<-rf.Pick()
-		fmt.Println("right second")
-	}
+func (p *Philosopher) WantsToEat(wg *sync.WaitGroup, room *Room, rf *Fork, lf *Fork) {
+	fmt.Printf("Philosopher %d wants to eat with %d and %d \n", p.Id, rf.Id, lf.Id)
+	wait := time.NewTicker(100 * time.Millisecond)
+	room.Enter() <- true
+	fmt.Printf("Philosopher entered the room. Occupancy: %d \n", len(room.Occupancy))
 
+	for {
+		select {
+		case <-rf.Pick():
+			select {
+			case <-lf.Pick():
+				break
+			case <-wait.C:
+				rf.Put() <- true
+				continue
+			}
+
+		case <-lf.Pick():
+			select {
+			case <-rf.Pick():
+				break
+			case <-wait.C:
+				lf.Put() <- true
+				continue
+			}
+		}
+		break
+	}
 	p.Eat()
 
-	rf.Put() <- true
-	lf.Put() <- true
+	select {
+	case rf.Put() <- true:
+		lf.Put() <- true
+	case lf.Put() <- true:
+		rf.Put() <- true
+	}
 
+	<-room.Exit()
+	fmt.Printf("Philosopher left the room. Occupancy: %d \n", len(room.Occupancy))
 	p.Think()
 	wg.Done()
 }
@@ -62,4 +83,24 @@ func (f *Fork) Pick() <-chan bool {
 
 func (f *Fork) Put() chan<- bool {
 	return f.Status
+}
+
+type Room struct {
+	Occupancy chan bool
+}
+
+func NewRoom() *Room {
+	r := Room{
+		Occupancy: make(chan bool, 4),
+	}
+
+	return &r
+}
+
+func (r *Room) Enter() chan<- bool {
+	return r.Occupancy
+}
+
+func (r *Room) Exit() <-chan bool {
+	return r.Occupancy
 }

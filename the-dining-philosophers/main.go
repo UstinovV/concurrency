@@ -20,7 +20,7 @@ var (
 
 func main() {
 	start := time.Now()
-
+	room := ph.NewRoom()
 	for i := 0; i < P; i++ {
 		table[i] = *ph.NewFork(i)
 		philosophers[i] = ph.Philosopher{Id: i}
@@ -31,7 +31,7 @@ func main() {
 
 	for i := 0; i < N; i++ {
 		for j := 0; j < P; j++ {
-			go philosophers[j].WantsToEat(wg, &table[j], &table[(j+1)%5])
+			go philosophers[j].WantsToEat(wg, room, &table[j], &table[(j+1)%5])
 		}
 	}
 	wg.Wait()
