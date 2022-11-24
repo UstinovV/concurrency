@@ -87,11 +87,13 @@ func (f *Fork) Put() chan<- bool {
 
 type Room struct {
 	Occupancy chan bool
+	Forks     [5]Fork
 }
 
 func NewRoom() *Room {
 	r := Room{
 		Occupancy: make(chan bool, 4),
+		Forks:     [5]Fork{},
 	}
 
 	return &r
